@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Pincoin Safe — Semifinal</title>
+<style>
+:root{--green:#00ff00;--bg:#000}
+html,body{height:100%;margin:0;background:var(--bg);color:var(--green);font-family:'Courier New',monospace}
+body{display:flex;align-items:flex-start;justify-content:center;padding:18px;box-sizing:border-box}
+body::before{content:'';position:fixed;inset:0;background:repeating-linear-gradient(0deg, rgba(0,255,0,0.02), rgba(0,255,0,0.02) 2px, transparent 2px, transparent 4px);z-index:0;animation:moveMatrix 2s linear infinite}
+@keyframes moveMatrix{0%{background-position:0 0}100%{background-position:0 100%}}
+.container{position:relative;z-index:1;max-width:420px;width:100%;display:flex;flex-direction:column;align-items:center;gap:12px;padding:20px;border:4px solid var(--green);background:rgba(0,0,0,0.88);border-radius:12px;box-shadow:0 0 30px var(--green)}
+h1{margin:0;font-size:22px;letter-spacing:2px}
+input,button{font-size:16px;padding:10px;border-radius:6px;border:2px solid var(--green);background:#000;color:var(--green)}
+button{cursor:pointer}
+button:disabled{opacity:0.5;cursor:not-allowed}
+.prize{margin-top:10px;padding:12px 14px;border-radius:10px;border:3px solid var(--green);font-weight:bold;font-size:18px;text-shadow:0 0 10px var(--green);background:#07111a}
+.status{min-height:22px;margin-top:6px;font-size:14px}
+.bot-chat,.user-chat{width:100%;max-height:150px;overflow:auto;background:rgba(0,0,0,0.85);border:2px solid var(--green);padding:8px;border-radius:10px;box-shadow:0 0 20px var(--green);font-size:13px;color:var(--green);word-break:break-word}
+.row{display:flex;gap:8px;align-items:center;width:100%}
+.input-small{flex:1;padding:8px;border-radius:6px;border:1px solid var(--green);background:#000;color:var(--green)}
+
+.modal{position:fixed;inset:0;background:rgba(0,0,0,0.95);display:flex;align-items:center;justify-content:center;z-index:9999}
+.modal-content{max-width:420px;max-height:80%;overflow:auto;background:#000;padding:18px;border:3px solid var(--green);border-radius:12px;color:var(--green)}
+
+#pincoinLogo{position:fixed;top:10px;right:10px;font-weight:bold;font-size:16px;color:gold;text-shadow:0 0 5px gold,0 0 10px gold,0 0 20px gold;animation:glowCoin 1.5s infinite alternate;z-index:10000}
+@keyframes glowCoin{0%{text-shadow:0 0 5px gold,0 0 10px gold,0 0 20px gold}100%{text-shadow:0 0 10px gold,0 0 20px gold,0 0 30px gold}}
+
+.footer-note{font-size:11px;opacity:0.9;margin-top:6px;text-align:center}
+.label-small{font-size:13px;opacity:0.9;margin-bottom:6px}
+.small-muted{font-size:12px;color:var(--green);opacity:0.8}
+</style>
+</head>
+<body>
+
+<div id="pincoinLogo">PINCOIN</div>
+
+<!-- SEMIFINAL: editar SITE_URL y MINT_ADDRESS en el script al final -->
+<div class="modal" id="privacyModal">
+  <div class="modal-content" id="privacyContent">
+    <h2>Privacy Policy & Terms</h2>
+    <p>This website is linked to the community-driven memecoin <strong>PINCOIN</strong> solely to provide a use-case and interactive experience.</p>
+    <p>Participation is voluntary, free and unlimited. This is not investment advice and is for entertainment purposes only. Users are fully responsible for their actions.</p>
+    <p>Prize displayed: <strong>10,000,000 $PIN</strong>. Prize amounts and winning probabilities are editable and may change.</p>
+    <p>Winners will be notified via the website. Estimated prize delivery timeframe: <strong>20–30 days</strong> (reference only).</p>
+    <p>To participate you must connect a compatible Solana wallet and hold <strong>at least 1 PIN token</strong> (SPL). The website only detects token ownership and does not store wallet private keys or personal data.</p>
+    <p>Some activity shown on the site may be simulated for entertainment. All actions are temporary and not stored permanently unless explicitly indicated.</p>
+    <p>By accepting you confirm you are 18+ and you have read and understood these terms.</p>
+    <div style="height:8px"></div>
+    <div style="display:flex;gap:8px;justify-content:center">
+      <button onclick="acceptPrivacy()" class="accept">I accept</button>
+    </div>
+  </div>
+</div>
+
+<div class="container" id="main" style="display:none;">
+  <h1>SAFE PIN</h1>
+
+  <div id="walletControls" class="row" style="width:100%">
+    <button id="connectBtn">Connect Phantom</button>
+    <div id="walletInfo" style="display:none;text-align:left;font-size:13px;flex:1;margin-left:6px">
+      <div><strong>Address:</strong> <span id="addr">-</span></div>
+      <div><strong>Network:</strong> <span id="network">-</span></div>
+      <div><strong>Token balance:</strong> <span id="tokenBalance">0</span></div>
+    </div>
+  </div>
+
+  <div class="row" style="width:100%">
+    <button id="openInPhantomBtn" style="width:100%;background:#07111a;border:2px solid gold;color:gold">Abrir en Phantom Wallet (móvil)</button>
+  </div>
+
+  <div style="width:100%;text-align:left;margin-top:6px" class="small-muted">Participar anónimamente: si marcas, tus intentos aparecerán como Anonymous en el chat (sólo para el resto).</div>
+  <input type="checkbox" id="anonCheckbox" style="margin-top:6px">
+
+  <input type="text" id="pin" placeholder="Enter PIN (text only)" style="width:100%;margin-top:8px">
+  <div class="row" style="width:100%">
+    <button id="tryBtn" disabled style="width:100%">Try</button>
+  </div>
+  <div id="result" class="status"></div>
+  <div class="prize">PRIZE: 10,000,000 $PIN</div>
+
+  <div class="bot-chat" id="botChat" aria-live="polite"></div>
+
+  <div class="user-chat" id="userChat" aria-live="polite"></div>
+  <div class="row" style="width:100%">
+    <input id="usernameInput" class="input-small" placeholder="Name (temporary)">
+    <input id="userInput" class="input-small" placeholder="Message">
+    <button id="sendUserBtn">Send</button>
+  </div>
+
+  <div class="footer-note">By participating you accept the Privacy Policy. Follow official channels for updates.</div>
+</div>
+
+<div class="modal" id="winnerModal" style="display:none">
+  <div class="modal-content">
+    <h2>Congratulations — You win!</h2>
+    <p id="winnerWallet" style="word-break:break-all"></p>
+    <p>You will receive your prize according to the Privacy Policy (estimated 20–30 days).</p>
+    <div style="height:8px"></div>
+    <button onclick="closeWinner()">OK</button>
+  </div>
+</div>
+
+<script src="https://unpkg.com/@solana/web3.js@1.73.3/lib/index.iife.js"></script>
+<script>
+// ================= EDITAR AQUÍ (solo 2 valores) =================
+// 1) SITE_URL: la URL definitiva donde publicarás la web (necesaria para el botón "Abrir en Phantom")
+const SITE_URL = "REPLACE_WITH_YOUR_SITE_URL";
+// 2) MINT_ADDRESS: mint SPL de tu token PIN (lo tendrás después de crear la moneda)
+const MINT_ADDRESS = "REPLACE_WITH_SPL_MINT_ADDRESS";
+// ===============================================================
+
+const REQUIRED_MIN_TOKENS = 1;
+const WIN_PROBABILITY = 0.000000001 / 1000;
+const CLUSTER = 'mainnet-beta';
+
+let provider=null, connection=null, publicKey=null, tokenBalance=0, winnerChosen=false;
+
+const connectBtn = document.getElementById('connectBtn');
+const tryBtn = document.getElementById('tryBtn');
+const addrEl = document.getElementById('addr');
+const networkEl = document.getElementById('network');
+const tokenBalanceEl = document.getElementById('tokenBalance');
+const walletInfo = document.getElementById('walletInfo');
+const botChat = document.getElementById('botChat');
+const userChat = document.getElementById('userChat');
+const resultEl = document.getElementById('result');
+const anonCheckbox = document.getElementById('anonCheckbox');
+const openInPhantomBtn = document.getElementById('openInPhantomBtn');
+
+function acceptPrivacy(){ document.getElementById('privacyModal').style.display='none'; document.getElementById('main').style.display='block'; }
+
+function buildPhantomDeepLink(){ if(!SITE_URL || SITE_URL.includes('REPLACE_WITH')) return '#'; return 'https://phantom.app/ul/browse/' + encodeURIComponent(SITE_URL); }
+openInPhantomBtn.addEventListener('click', ()=>{ const link=buildPhantomDeepLink(); if(link==='#'){ alert('Configura SITE_URL dentro del archivo antes de usar este botón.'); return; } window.location.href = link; });
+
+async function connectPhantom(){
+  if(!window.solana || !window.solana.isPhantom){ alert('No Phantom detected. Open this page from Phantom mobile browser or/or install Phantom.'); return; }
+  try{
+    provider = window.solana;
+    const resp = await provider.connect();
+    publicKey = resp.publicKey;
+    addrEl.textContent = publicKey.toString();
+    walletInfo.style.display = 'block';
+    connection = new solanaWeb3.Connection(solanaWeb3.clusterApiUrl(CLUSTER));
+    networkEl.textContent = CLUSTER;
+    await updateTokenInfo();
+    const ok = await hasRequiredToken();
+    tryBtn.disabled = !ok;
+    connectBtn.textContent = 'Connected';
+  }catch(e){ console.error(e); alert('Connection failed: '+(e.message||e)); }
+}
+
+async function updateTokenInfo(){
+  try{
+    if(!publicKey) return;
+    if(!MINT_ADDRESS || MINT_ADDRESS.includes('REPLACE_WITH')){ tokenBalance=0; tokenBalanceEl.textContent='n/a'; return; }
+    const mintPubkey = new solanaWeb3.PublicKey(MINT_ADDRESS);
+    const resp = await connection.getParsedTokenAccountsByOwner(publicKey, { mint: mintPubkey });
+    if(!resp || resp.value.length===0){ tokenBalance=0; tokenBalanceEl.textContent='0'; return; }
+    const parsed = resp.value[0].account.data.parsed.info.tokenAmount;
+    tokenBalance = parsed.uiAmount || 0;
+    tokenBalanceEl.textContent = parsed.uiAmountString || parsed.uiAmount || parsed.amount || '0';
+  }catch(e){ console.error('updateTokenInfo', e); tokenBalance=0; tokenBalanceEl.textContent='0'; }
+}
+
+async function hasRequiredToken(){ await updateTokenInfo(); return tokenBalance >= REQUIRED_MIN_TOKENS; }
+
+async function tryPin(){
+  if(!publicKey){ alert('Acepta los términos y conecta tu wallet.'); return; }
+  const ok = await hasRequiredToken();
+  if(!ok){ alert('Debes tener al menos '+REQUIRED_MIN_TOKENS+' PIN token para participar.'); return; }
+  const rnd = Math.random();
+  if(rnd < WIN_PROBABILITY && !winnerChosen){
+    showWinner(publicKey.toString());
+    addBotMessage(truncate(publicKey.toString()) + ' won the prize');
+  } else {
+    flashError();
+    if(anonCheckbox.checked){
+      addBotMessage('Pincoin: Anonymous : failed to win');
+    } else {
+      addBotMessage(truncate(publicKey.toString()) + ' failed to win');
+    }
+  }
+}
+
+function flashError(){ resultEl.textContent='ERROR'; let f=0; const iv=setInterval(()=>{ resultEl.style.opacity = resultEl.style.opacity === '0' ? '1' : '0'; f++; if(f>5){ clearInterval(iv); resultEl.style.opacity='1'; } },100); setTimeout(()=>{ resultEl.textContent=''; },2000); }
+
+function addBotMessage(msg){ const d=document.createElement('div'); d.textContent = msg; botChat.appendChild(d); if(botChat.scrollHeight > botChat.clientHeight) botChat.scrollTop = botChat.scrollHeight; }
+
+function botLoop(){ const wallets=['0xAB12...34CD','0xEF56...78GH','0x1234...5678','0x9ABC...DEF0']; const actions=['tried and failed','attempted and failed']; const names=['joseluius','maria','cryptoFan','anon']; const pick=Math.random(); if(pick<0.6){ const w=wallets[Math.floor(Math.random()*wallets.length)]; const a=actions[Math.floor(Math.random()*actions.length)]; addBotMessage(w+' '+a); } else { const n=names[Math.floor(Math.random()*names.length)]; addBotMessage('Pincoin: '+n+' : tried and failed'); } }
+setInterval(botLoop,3000);
+
+document.getElementById('sendUserBtn').addEventListener('click', ()=>{ const text=document.getElementById('userInput').value.trim(); const name=document.getElementById('usernameInput').value.trim()||'Anonymous'; if(!text) return; userMessagesPush(`Pincoin: ${escapeHtml(name)} : ${escapeHtml(text)}`); document.getElementById('userInput').value=''; });
+
+let userMessages = [];
+function userMessagesPush(msg){ userMessages.push(msg); if(userMessages.length>15) userMessages.shift(); renderUserChat(); }
+function renderUserChat(){ userChat.innerHTML=''; userMessages.forEach(m=>{ const d=document.createElement('div'); d.textContent=m; userChat.appendChild(d); }); userChat.scrollTop = userChat.scrollHeight; }
+function escapeHtml(s){ return s.replace(/[&<>"']/g, (c)=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function truncate(a){ if(!a) return 'Anonymous'; if(a.length<12) return a; return a.slice(0,6)+'...'+a.slice(-4); }
+
+function showWinner(wallet){ if(winnerChosen) return; winnerChosen=true; document.getElementById('winnerWallet').textContent = wallet; document.getElementById('winnerModal').style.display='flex'; }
+function closeWinner(){ document.getElementById('winnerModal').style.display='none'; }
+
+connectBtn.addEventListener('click', connectPhantom);
+tryBtn.addEventListener('click', tryPin);
+
+</script>
+</body>
+</html>
