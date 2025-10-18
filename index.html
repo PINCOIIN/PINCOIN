@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>PINCOIN SAFE</title>
+<style>
+  :root { --blue: #00bfff; --bg:#001f3f; --muted:#cfeeff; --gold:#d4af37; }
+  html,body{height:100%;margin:0;background:var(--bg);color:var(--muted);font-family:Inter,Arial,sans-serif}
+  .center{max-width:760px;margin:18px auto;padding:18px}
+  .card{background:rgba(0,0,0,0.85);border:1px solid rgba(0,191,255,0.08);padding:18px;border-radius:10px}
+  h1{color:var(--gold);letter-spacing:2px;margin:6px 0}
+  .muted{color:#9fbfdf;font-size:14px}
+  input,button,select{padding:10px;border-radius:8px;border:2px solid rgba(0,191,255,0.12);background:transparent;color:var(--muted);font-size:15px}
+  .btn{cursor:pointer}
+  .btn-primary{border-color:var(--blue);color:var(--blue);font-weight:700}
+  .badge{padding:8px;border:2px solid var(--blue);border-radius:8px;font-weight:700;color:var(--blue)}
+  .modal{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.95);z-index:9999}
+  .modal-card{width:min(920px,96%);background:#041022;border:2px solid var(--blue);padding:18px;border-radius:10px;color:var(--muted)}
+  .col{margin-top:14px}
+  .small{font-size:13px;color:#9fbfdf}
+  @media(max-width:720px){.center{padding:10px}}
+</style>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/supabase.min.js"></script>
+</head>
+<body>
+
+<div class="center">
+  <div class="card">
+    <h1>PINCOIN</h1>
+    <div class="muted">Pincoin Safe — virtual safe</div>
+
+    <div style="margin-top:12px">
+      <div class="badge" id="prize">POOL: 10,000,000 $PIN</div>
+    </div>
+
+    <div class="col" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+      <input id="walletInput" type="text" placeholder="Enter your public wallet (Solana)" style="flex:1" />
+      <button class="btn btn-primary" onclick="openSolscan()">View on Solscan</button>
+      <button class="btn btn-primary" onclick="checkWallet()" id="checkBtn">Check ownership</button>
+    </div>
+
+    <div class="col" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+      <input id="pinInput" type="text" placeholder="Enter a PIN (e.g., 4321)" style="flex:1" />
+      <button class="btn btn-primary" onclick="tryPin()" id="tryBtn" disabled>Try</button>
+    </div>
+
+    <div class="col" style="display:flex;gap:12px;align-items:center">
+      <div class="small">Total attempts (local): <span id="tryCounter">0</span></div>
+      <div class="small">Wallet verified: <span id="walletStatus">no</span></div>
+    </div>
+
+    <div id="result" class="col small"></div>
+  </div>
+</div>
+
+<!-- Privacy modal -->
+<div id="privacyModal" class="modal">
+  <div class="modal-card">
+    <h3 style="color:var(--blue)">Privacy Policy & Terms</h3>
+    <div id="policyText" style="max-height:420px;overflow:auto;white-space:pre-wrap;margin-top:10px;padding:6px;background:#001627;border-radius:8px">
+Pincoin - Privacy Policy & Terms
+
+Pincoin is an experimental entertainment platform linked to the Pincoin memecoin.
+
+1) Wallet use:
+The wallet entered is used only to verify ownership of the Pincoin token (read-only). Seed phrases/private keys are never requested or stored. The full wallet will be saved only if the user wins and a payout must be verified.
+
+2) Data:
+Failed attempts are not stored. Only winners (full wallet, pin, timestamp) are saved to enable manual payout.
+
+3) Prizes:
+Pool: 10,000,000 PIN. Max prize per event: up to 25% of the pool (decided by admin/community).
+
+4) Probabilities:
+The probability of winning is low and can be adjusted by token price. Max 20% if token reaches $1 USD. Values are indicative.
+
+5) Payout:
+Prize is sent manually to the winning wallet. It may take 20–30 days approx depending on liquidity.
+
+6) Acceptance:
+By accepting, the user gives permission for the checks described.
+
+7) Liability:
+We are not responsible for losses or misuse.
+    </div>
+    <div style="text-align:center;margin-top:12px">
+      <button id="acceptPolicy" class="btn btn-primary" disabled>Accept</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const SUPABASE_URL = "https://ijsxpqbqasegolfpdtkl.supabase.co";
+const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imlqc3hwcWJxYXNlZ29sZnBkdGtsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjAxOTE2ODUsImV4cCI6MjA3NTc2NzY4NX0.gTTyAs_1g8qtF3Tu1dok3lg631bAZKWVMiLm3WT1xH4";
+const SUPABASE = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+const PIN_MINT = "Jz1Jy2oxiNeyCF5TLPX4RMoAiCVpczpk1rFFzS1pump";
+const SOL_RPC = "https://api.mainnet-beta.solana.com";
+
+let walletVerified = false;
+let verifiedWalletAddress = null;
+let localAttempts = 0;
+let currentProb = 0.00000000001;
+
+document.addEventListener('DOMContentLoaded',()=>{
+  const acceptBtn = document.getElementById('acceptPolicy');
+  acceptBtn.disabled = true;
+  const pt = document.getElementById('policyText');
+  pt.scrollTop = 0;
+  let scrolled=false; let timerOk=false;
+  pt.addEventListener('scroll',()=>{ if(pt.scrollTop+pt.clientHeight >= pt.scrollHeight-4){ scrolled=true; if(timerOk) acceptBtn.disabled=false; } });
+  setTimeout(()=>{ timerOk=true; if(scrolled) acceptBtn.disabled=false; },2000);
+  acceptBtn.addEventListener('click',()=>{
+    document.getElementById('privacyModal').style.display='none';
+    document.getElementById('tryBtn').disabled = true;
+  });
+});
+
+function openSolscan(){
+  const w=document.getElementById('walletInput').value.trim();
+  if(!w){ alert("Enter a valid wallet (Solana)."); return;}
+  window.open(`https://solscan.io/account/${w}`, '_blank');
+}
+
+async function checkWallet(){
+  const addr = document.getElementById('walletInput').value.trim();
+  if(!addr){ alert("Enter a valid wallet (Solana)."); return;}
+  document.getElementById('walletStatus').textContent='...';
+  try{
+    const body={jsonrpc:"2.0",id:1,method:"getTokenAccountsByOwner",params:[addr,{mint:PIN_MINT},{encoding:"jsonParsed"}]};
+    const r = await fetch(SOL_RPC,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});
+    const j = await r.json();
+    const accounts = (j && j.result && Array.isArray(j.result.value))?j.result.value:[];
+    let hasPin=false;
+    for(const a of accounts){
+      const amt=a.account?.data?.parsed?.info?.tokenAmount;
+      const ui=(amt && (amt.uiAmount!=null))?amt.uiAmount:(amt && amt.amount?Number(amt.amount):0);
+      if(Number(ui)>=1){hasPin=true; break;}
+    }
+    if(hasPin){
+      walletVerified=true;
+      verifiedWalletAddress=addr;
+      document.getElementById('walletStatus').textContent='yes';
+      document.getElementById('tryBtn').disabled=false;
+      alert("
