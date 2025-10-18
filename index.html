@@ -1,0 +1,241 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>PINCOIN SAFE — Demo (Fictitious)</title>
+<style>
+:root{--blue:#00bfff;--bg:#001f3f;--muted:#cfeeff;--gold:#d4af37}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0;background:var(--bg);color:var(--muted);font-family:Inter, Arial, sans-serif}
+.container{max-width:820px;margin:28px auto;padding:20px}
+.card{background:rgba(0,0,0,0.88);border:1px solid rgba(0,191,255,0.06);padding:18px;border-radius:12px}
+.header{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.logo{font-weight:900;font-size:28px;color:var(--gold);letter-spacing:2px}
+.lead{color:#9fbfdf}
+.row{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:12px}
+.input,button,select,textarea{padding:10px;border-radius:8px;border:2px solid rgba(0,191,255,0.10);background:transparent;color:var(--muted);font-size:15px}
+.input{flex:1;min-width:180px}
+.btn{cursor:pointer}
+.btn-primary{border-color:var(--blue);color:var(--blue);font-weight:700}
+.badge{padding:8px;border:2px solid var(--blue);border-radius:8px;color:var(--blue);font-weight:700}
+.small{font-size:13px;color:#9fbfdf}
+.notice{margin-top:12px;padding:12px;border-radius:8px;background:rgba(0,0,0,0.25);border:1px dashed rgba(0,191,255,0.06)}
+.result{margin-top:12px;font-weight:700}
+.footer{margin-top:14px;font-size:13px;color:#9fbfdf}
+
+/* modal */
+.modal{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.96);z-index:9999}
+.modal-card{width:min(960px,96%);background:#041022;border:2px solid var(--blue);padding:18px;border-radius:10px;color:var(--muted)}
+.scrollbox{max-height:420px;overflow:auto;white-space:pre-wrap;padding:12px;background:#001827;border-radius:8px;border:1px solid rgba(0,191,255,0.04)}
+.center{text-align:center}
+
+/* responsive */
+@media(max-width:720px){ .row{flex-direction:column;align-items:stretch} .logo{font-size:22px} }
+</style>
+</head>
+<body>
+
+<div class="container">
+  <div class="card">
+    <div class="header">
+      <div>
+        <div class="logo">PINCOIN</div>
+        <div class="lead">Virtual Safe — Demo (FICTITIOUS)</div>
+      </div>
+      <div style="text-align:right">
+        <div class="small">Pool <span class="badge">10,000,000 $PIN</span></div>
+        <div class="small" style="margin-top:6px">Max prize up to 25% (simulated)</div>
+      </div>
+    </div>
+
+    <div class="notice">
+      <strong>IMPORTANT — DEMO MODE:</strong> This site is a <em>simulation</em>. No real blockchain calls, no wallet connections, and no real payouts are performed. Participation is fictitious and for testing/demo only.
+    </div>
+
+    <div class="row" style="margin-top:18px;">
+      <input id="walletInput" class="input" placeholder="Enter public Solana wallet (any text allowed for demo)" />
+      <button id="viewSolscan" class="btn btn-primary">View on Solscan</button>
+      <button id="verifyBtn" class="btn btn-primary">Simulate Verify</button>
+    </div>
+
+    <div class="row">
+      <input id="pinInput" class="input" placeholder="Enter a PIN (e.g. 4321)" />
+      <button id="tryBtn" class="btn btn-primary" disabled>Try</button>
+      <button id="exportWinners" class="btn">Export winners (CSV)</button>
+    </div>
+
+    <div class="row">
+      <div class="small">Attempts (persisted local): <strong id="attemptsCount">0</strong></div>
+      <div class="small">Verified (simulated): <strong id="verifiedStatus">no</strong></div>
+      <div class="small">Probability (simulated): <strong id="probabilityLabel">very low</strong></div>
+    </div>
+
+    <div id="result" class="result"></div>
+
+    <div class="footer">
+      This demo stores winners locally in your browser (localStorage). Use "Export winners" to download CSV. Nothing is sent to the blockchain.
+    </div>
+  </div>
+</div>
+
+<!-- Privacy modal (must accept) -->
+<div id="privacyModal" class="modal" role="dialog" aria-modal="true">
+  <div class="modal-card">
+    <div class="center">
+      <h2 style="color:var(--blue)">Privacy Policy & Terms (Demo)</h2>
+      <p class="small">You must scroll this text and wait 2 seconds before the "Accept" button becomes active.</p>
+    </div>
+    <div id="policyBox" class="scrollbox" tabindex="0">
+Pincoin — Demo Privacy Policy & Terms (FICTITIOUS)
+
+This site is a demonstration. It does NOT connect to wallets or the blockchain. All verification is simulated and fictitious.
+
+1) PURPOSE:
+This demo exists only for demonstration and testing. It is not financial advice and does not represent a real giveaway.
+
+2) WALLET AND DATA:
+Wallets typed in are used only locally in your browser for simulation. No wallet seeds, private keys, or funds are requested or stored externally.
+
+3) WINNERS:
+Winners are stored only in the browser's localStorage and can be exported by the page owner. No real payouts occur.
+
+4) EDITS & RULES:
+All rules, probabilities and prizes are fictional and may be changed by the site owner. By accepting you understand this is a demo.
+
+5) LIABILITY:
+The site owner is not responsible for any losses. Do not use real funds based on this demo.
+
+By accepting you declare you understand this is a simulation and consent to local storage of demo winners.
+    </div>
+
+    <div style="text-align:center;margin-top:12px">
+      <button id="acceptPolicy" class="btn btn-primary" disabled>Accept (I understand this is a demo)</button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* --------- Demo config and state (no real blockchain calls) ---------- */
+const LS_PREFIX = 'pincoin_demo_';
+const LS_ATTEMPTS_KEY = LS_PREFIX + 'attempts';
+const LS_WINNERS_KEY = LS_PREFIX + 'winners';
+const DEFAULT_PROB = 1e-11; // simulated very low probability
+
+let state = {
+  verified: false,
+  verifiedWallet: null,
+  attempts: Number(localStorage.getItem(LS_ATTEMPTS_KEY) || 0),
+  winners: JSON.parse(localStorage.getItem(LS_WINNERS_KEY) || '[]'),
+  prob: DEFAULT_PROB
+};
+
+/* ---------- Utility helpers ---------- */
+function q(id){ return document.getElementById(id); }
+function saveState(){
+  localStorage.setItem(LS_ATTEMPTS_KEY, String(state.attempts));
+  localStorage.setItem(LS_WINNERS_KEY, JSON.stringify(state.winners));
+}
+function updateUI(){
+  q('attemptsCount').textContent = state.attempts;
+  q('verifiedStatus').textContent = state.verified ? 'yes (simulated)' : 'no';
+  q('probabilityLabel').textContent = state.prob < 1e-8 ? 'very low' : (state.prob < 0.05 ? 'low' : 'higher');
+  q('tryBtn').disabled = !state.verified;
+}
+function showResult(text, kind='info'){
+  const el = q('result');
+  el.textContent = text;
+  el.style.color = kind === 'win' ? '#b6ffb6' : (kind === 'error' ? '#ffb6b6' : 'var(--muted)');
+}
+
+/* ---------- CSV export ---------- */
+function winnersToCSV(arr){
+  const header = ['wallet','pin','timestamp'];
+  const rows = arr.map(w => [w.wallet || '', w.pin || '', w.created_at || '']);
+  const csv = [header, ...rows].map(r => r.map(cell => `"${String(cell).replace(/"/g,'""')}"`).join(',')).join('\n');
+  return csv;
+}
+function downloadCSV(filename, text){
+  const blob = new Blob([text], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = filename; a.style.display='none';
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+/* ---------- DOM behavior ---------- */
+document.addEventListener('DOMContentLoaded', () => {
+  // initial UI
+  updateUI();
+  showResult('Demo loaded. Accept privacy to start.');
+
+  // policy: require scroll + 2s delay
+  const policyBox = q('policyBox');
+  const acceptBtn = q('acceptPolicy');
+  let scrolled = false, timerOk = false;
+  policyBox.scrollTop = 0;
+  function onPolicyScroll(){ if(policyBox.scrollTop + policyBox.clientHeight >= policyBox.scrollHeight - 4){ scrolled = true; policyBox.removeEventListener('scroll', onPolicyScroll); if(timerOk) acceptBtn.disabled = false; } }
+  policyBox.addEventListener('scroll', onPolicyScroll);
+  setTimeout(()=>{ timerOk = true; if(scrolled) acceptBtn.disabled = false; }, 2000);
+  acceptBtn.addEventListener('click', ()=> {
+    document.getElementById('privacyModal').style.display = 'none';
+    showResult('Privacy accepted (demo). You can simulate verification or try anonymously (simulated).');
+  });
+
+  // view Solscan (opens real explorer for user convenience)
+  q('viewSolscan').addEventListener('click', ()=> {
+    const w = q('walletInput').value.trim();
+    if(!w){ alert('Enter a (demo) wallet address first.'); return; }
+    window.open(`https://solscan.io/account/${encodeURIComponent(w)}`, '_blank');
+  });
+
+  // Simulated "verify" button: always succeeds but marks as simulated
+  q('verifyBtn').addEventListener('click', ()=> {
+    const w = q('walletInput').value.trim();
+    if(!w){ alert('Enter a (demo) wallet address first.'); return; }
+    // Basic validation: ensure not empty (we allow any text for demo)
+    state.verified = true;
+    state.verifiedWallet = w;
+    saveState();
+    updateUI();
+    showResult('Verification simulated — this is fictional. You may now press Try.');
+  });
+
+  // Try button: allowed only after simulated verification
+  q('tryBtn').addEventListener('click', ()=> {
+    // if not verified, block (shouldn't happen if UI enabled)
+    if(!state.verified){ showResult('You must simulate verification first.', 'error'); return; }
+    const pin = q('pinInput').value.trim() || '(empty)';
+    state.attempts++;
+    updateUI();
+    saveState();
+
+    // Simulated roll
+    const roll = Math.random();
+    const win = roll < state.prob;
+    if(win){
+      const winner = { wallet: state.verifiedWallet, pin, created_at: new Date().toISOString() };
+      state.winners.push(winner);
+      saveState();
+      showResult('WINNER (SIMULATED)! Saved locally. Use Export to download.', 'win');
+    } else {
+      showResult('Not a winner (simulated). Try again.');
+    }
+  });
+
+  // Export winners
+  q('exportWinners').addEventListener('click', ()=> {
+    const csv = winnersToCSV(state.winners);
+    downloadCSV('pincoin_demo_winners.csv', csv);
+  });
+
+  // restore UI values
+  updateUI();
+});
+
+/* ---------- Safety: expose reset function for testing (not visible) ---------- */
+window.__pincoin_demo_reset = function(){ localStorage.removeItem(LS_ATTEMPTS_KEY); localStorage.removeItem(LS_WINNERS_KEY); state.attempts = 0; state.winners = []; state.verified=false; state.verifiedWallet=null; saveState(); updateUI(); showResult('State reset.'); };
+</script>
+</body>
+</html>
